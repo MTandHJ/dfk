@@ -295,8 +295,8 @@ def main(
 
     # final evaluation
     evaluate(trainloader, prefix='Train', epoch=opts.epochs)
-    acc_nat, acc_rob = evaluate(validloader, prefix="Valid", epoch=opts.epochs)
-    coach.check_best(acc_nat, acc_rob, info_path, epoch=opts.epochs) 
+    mAP = evaluate(validloader, prefix="Valid", epoch=opts.epochs)
+    coach.check_best(mAP, info_path, epoch=opts.epochs) 
 
     mAP_logger.plotter.plot()
     mAP_logger.plotter.save(log_path)
