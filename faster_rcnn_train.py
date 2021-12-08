@@ -22,7 +22,7 @@ parser.add_argument("--backbone", type=str, default="resnet50")
 parser.add_argument("--dataset", type=str, default="voc2012")
 parser.add_argument("--pretrained-path", type=str, default=None)
 parser.add_argument("--pretrained-name", type=str, default=SAVED_FILENAME)
-parser.add_argument("--trainable-stages", type=int, default=5)
+parser.add_argument("--trainable-stages", type=int, default=0)
 
 # transform
 parser.add_argument("--min-size", type=int, default=300,
