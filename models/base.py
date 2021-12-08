@@ -1,6 +1,6 @@
 
 
-from typing import Any, Callable, List, Dict
+from typing import Any, Callable, List, Dict, Optional
 import torch
 import torch.nn as nn
 import abc
@@ -46,5 +46,5 @@ class ODArch(ObjDetectionModule):
     def load_state_dict(self, *args, **kwargs):
         return self.arch.load_state_dict(*args, **kwargs)
 
-    def __call__(self, images: List[torch.Tensor], targets: List[Dict], **kwargs: Any) -> Any:
+    def __call__(self, images: List[torch.Tensor], targets: Optional[List[Dict]] = None, **kwargs: Any) -> Any:
         return  self.model(images, targets, **kwargs)
