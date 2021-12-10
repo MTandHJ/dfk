@@ -3,6 +3,8 @@
 
 from typing import Tuple
 import argparse
+
+from torch import BoolStorage
 from src.loadopts import *
 from src.utils import timemeter
 from src.config import SAVED_FILENAME, BOXES
@@ -194,11 +196,11 @@ def main(
         fp.add_patch(rectangle)
 
         text = f"{classnames[label]}: {score:.3f}"
-        fontsize = min(BOXES.fontsize, w * BOXES.proportion)
-        w, h = len(text) * fontsize, fontsize * BOXES.ratio
+        fontsize = min(BOXES.fontsize, w * BOXES.proportion * BOXES.rate / len(text))
+        w, h = len(text) * fontsize / BOXES.rate, fontsize * BOXES.ratio
         rectangle = patches.Rectangle(x, y, w, h, color=BOXES.background, fill=True)
         fp.add_patch(rectangle)
-        fp.set_text(x, y + h, text, color=BOXES.fontcolor, fontsize=BOXES.fontsize)
+        fp.set_text(x, y + h, text, color=BOXES.fontcolor, fontsize=fontsize)
     fp.show()
 
 

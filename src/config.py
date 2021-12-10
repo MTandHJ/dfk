@@ -127,6 +127,7 @@ BOXES = Config(
     fontsize=10,
     proportion=2/3,
     ratio=2,
+    rate=3/4, # 1pt=3/4px
     fontcolor='black',
     background='white'
 )

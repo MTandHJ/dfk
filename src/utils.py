@@ -282,7 +282,7 @@ def activate_benchmark(benchmark: bool) -> None:
 
 def set_seed(seed: int) -> None:
     if seed == -1:
-        seed = random.randint(0, 1024)
+        seed = random.randint(0, 125808521)
         logger = getLogger()
         logger.info(f"[Seed] >>> Set seed randomly: {seed}")
     random.seed(seed)

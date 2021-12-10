@@ -101,12 +101,12 @@ class MeanAveragePrecision:
         # tp[-1] + fn == the number of gt_boxes
         tp = torch.cumsum(tp, dim=0).numpy()
         fp = torch.cumsum(fp, dim=0).numpy()
-        fn = sum(fn.sum().item() for fn in fns)
+        tp_plus_fn = float(sum(fn.numel() for fn in fns))
 
         ppv = tp / (tp + fp) 
         # I adopts tpr = tp / np.maximum((tp + fn), 0.5) at first,
         # but official code adopts the following formula:
-        tpr = tp / (tp[-1] + fn)
+        tpr = tp / tp_plus_fn
         ppv = np.concatenate(([0.], ppv, [0.]))
         tpr = np.concatenate(([0.], tpr, [1.]))
 
