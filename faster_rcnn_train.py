@@ -11,9 +11,9 @@ from src.config import SAVED_FILENAME
 
 
 
-METHOD = "FasterRCNN"
+METHOD = "FasterRCNNTrain"
 SAVE_FREQ = 5
-FMT = "{description}={min_size}-{max_size}_{representation_size}" \
+FMT = "{description}={min_size}-{max_size}-{representation_size}-{trainable_stages}" \
         "={learning_policy}-{optimizer}-{lr}-{weight_decay}" \
         "={batch_size}={transform}"
 

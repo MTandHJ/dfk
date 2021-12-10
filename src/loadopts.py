@@ -153,11 +153,15 @@ def _dataset(
         from src.datasets import VOC2007
         if train_val_test == "val":
             train_val_test = "trainval"
+        elif train_val_test == "test":
+            train_val_test = "val"
         dataset = VOC2007(root=ROOT, image_set=train_val_test, download=DOWNLOAD)
     elif dataset_type == "voc2012":
         from src.datasets import VOC2012
         if train_val_test == "val":
             train_val_test = "trainval"
+        elif train_val_test == "test":
+            train_val_test = "val"
         dataset = VOC2012(root=ROOT, image_set=train_val_test, download=DOWNLOAD)
     else:
         raise DatasetNotIncludeError("Dataset {0} is not included." \

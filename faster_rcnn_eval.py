@@ -5,21 +5,30 @@ from typing import Tuple
 import argparse
 from src.loadopts import *
 from src.utils import timemeter
-from src.config import SAVED_FILENAME
+from src.config import SAVED_FILENAME, BOXES
 
 
 
-METHOD = "FasterRCNN"
+METHOD = "FasterRCNNEval"
 SAVE_FREQ = 5
-FMT = "{description}={min_size}-{max_size}_{representation_size}" \
+FMT = "{description}={score_thresh}-{detections_per_img}" \
+        "={min_size}-{max_size}-{representation_size}" \
         "={batch_size}={transform}"
 
+
 parser = argparse.ArgumentParser()
+parser.add_argument("info_path", type=str)
 parser.add_argument("--backbone", type=str, default="resnet50")
 parser.add_argument("--dataset", type=str, default="voc2012")
-parser.add_argument("--info-path", type=str, default=None)
 parser.add_argument("--filename", type=str, default=SAVED_FILENAME)
-parser.add_argument("--rank", type=int, default=0)
+
+parser.add_argument("--rank", type=int, default=-1)
+parser.add_argument("-tvt", "--train-val-test", choices=('train', 'val', 'test'), default='test')
+
+# roi head
+parser.add_argument("-st", "--score-thresh", type=float, default=0.5,
+                help="only return the bounding boxes greater than score_thresh")
+parser.add_argument("-dpi", "--detections-per-img", type=int, default=100)
 
 # transform
 parser.add_argument("--min-size", type=int, default=300,
@@ -48,7 +57,7 @@ parser.add_argument("--log2file", action="store_false", default=True,
                 help="False: remove file handler")
 parser.add_argument("--log2console", action="store_false", default=True,
                 help="False: remove console handler if log2file is True ...")
-parser.add_argument("--seed", type=int, default=1)
+parser.add_argument("--seed", type=int, default=-1)
 parser.add_argument("--benchmark", action="store_false", default=True, 
                 help="cudnn.benchmark == True ?")
 parser.add_argument("-m", "--description", type=str, default=METHOD)
@@ -90,13 +99,7 @@ def load_cfg() -> Tuple[Config, str]:
 
     # the model and other settings for training
     backbone, stages = load_backbone(opts.backbone)
-    if opts.pretrained_path is not None:
-        load(
-            model=backbone,
-            path=opts.pretrained_path,
-            filename=opts.pretrained_name
-        )
-    
+
     # fpn
     fpn = load_fpn(
         model_type=opts.backbone,
@@ -137,12 +140,12 @@ def load_cfg() -> Tuple[Config, str]:
     model = load_faster_rcnn(
         backbone=fpn, rpn=rpn, roi_heads=roi_heads, transform=transform
     )
-    model = ODArch(
+    cfg['model'] = ODArch(
         model=model
     )
 
     load(
-        model=model,
+        model=cfg.model,
         path=opts.info_path,
         filename=opts.filename
     )
@@ -151,10 +154,11 @@ def load_cfg() -> Tuple[Config, str]:
     cfg['dataset'] = load_dataset(
         dataset_type=opts.dataset,
         transforms="tensor,none",
-        train_val_test='test'
+        train_val_test=opts.train_val_test
     )
 
     return cfg
+
 
 
 @timemeter("Main")
@@ -163,7 +167,10 @@ def main(
     info_path, log_path, device=DEVICE
 ):
     from freeplot.base import FreePlot, FreePatches
-    patches = FreePatches()
+    import random
+    if opts.rank == -1:
+        opts.rank = random.randint(0, len(dataset))
+    patches = FreePatches(linewidth=BOXES.width)
     image, targets = dataset[opts.rank]
     classnames = {v:k for k, v in dataset.data.class_dict.items()}
     
@@ -176,14 +183,20 @@ def main(
 
     _, H, W = image.size()
     image = image.permute((1, 2, 0)).numpy()
-    fp = FreePlot(figsize=(H / 100, W / 100))
-    fp.imageplot(image)
+    fp = FreePlot(figsize=(H / 100, W / 100), dpi=100)
+    fp.imageplot(image, show_ticks=True)
     for box, label, score in zip(boxes, labels, scores):
+        assert score >= opts.score_thresh
         x, y, w, h = box[0], box[1], box[2] - box[0], box[3] - box[1]
-        rectangle = patches.Rectangle(x, y, w, h, color='red')
-        text = f"{classnames[label]}: {score:.3f}"
+        rectangle = patches.Rectangle(x, y, w, h, color=BOXES.color)
         fp.add_patch(rectangle)
-        fp.set_text(x, y, text)
+
+        text = f"{classnames[label]}: {score:.3f}"
+        fontsize = min(BOXES.fontsize, w * BOXES.proportion)
+        w, h = len(text) * fontsize, fontsize * BOXES.ratio
+        rectangle = patches.Rectangle(x, y, w, h, color=BOXES.background, fill=True)
+        fp.add_patch(rectangle)
+        fp.set_text(x, y + h, text, color=BOXES.fontcolor, fontsize=BOXES.fontsize)
     fp.show()
 
 

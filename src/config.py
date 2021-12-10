@@ -119,7 +119,17 @@ LEARNING_POLICY = {
 }
 
 
-
+# for plotting bounding boxes
+BOXES = Config(
+    color='#D4283C',
+    width=2,
+    # text
+    fontsize=10,
+    proportion=2/3,
+    ratio=2,
+    fontcolor='black',
+    background='white'
+)
 
 
 
