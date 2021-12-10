@@ -11,7 +11,7 @@ from src.config import SAVED_FILENAME, BOXES
 
 METHOD = "FasterRCNNEval"
 SAVE_FREQ = 5
-FMT = "{description}={score_thresh}-{detections_per_img}" \
+FMT = "{description}={score_thresh}-{nms_thresh}-{detections_per_img}" \
         "={min_size}-{max_size}-{representation_size}" \
         "={batch_size}={transform}"
 
@@ -28,12 +28,14 @@ parser.add_argument("-tvt", "--train-val-test", choices=('train', 'val', 'test')
 # roi head
 parser.add_argument("-st", "--score-thresh", type=float, default=0.5,
                 help="only return the bounding boxes greater than score_thresh")
-parser.add_argument("-dpi", "--detections-per-img", type=int, default=100)
+parser.add_argument("-nt", "--nms-thresh", type=float, default=0.35,
+                help="lower for fewer")
+parser.add_argument("-dpi", "--detections-per-img", type=int, default=10)
 
 # transform
-parser.add_argument("--min-size", type=int, default=300,
+parser.add_argument("--min-size", type=int, default=800,
                 help="for GeneralizedRCNNTransform")
-parser.add_argument("--max-size", type=int, default=500,
+parser.add_argument("--max-size", type=int, default=1333,
                 help="for GeneralizedRCNNTransform")
 
 # rpn
