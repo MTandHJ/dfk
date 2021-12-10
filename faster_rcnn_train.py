@@ -2,7 +2,6 @@
 
 
 from typing import Tuple
-from torchvision.models.detection._utils import overwrite_eps
 
 import argparse
 from src.loadopts import *

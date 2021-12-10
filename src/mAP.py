@@ -1,5 +1,10 @@
 
 
+"""
+Reference:
+facebookresearch/Detectron/detectron/datasets/voc_eval.py
+https://github.com/facebookresearch/Detectron/blob/main/detectron/datasets/voc_eval.py
+"""
 
 from typing import Iterable, List, Dict, Tuple, Optional
 import torch
@@ -34,12 +39,13 @@ class MeanAveragePrecision:
             {k:v.detach().clone().cpu() for k, v in target.items()}
             for target in targets
         ]
+        # avoid using target['image_id'], which will be influenced by the shuffle operation !
+        image_id = len(self.gt_labels) 
         for pred, target in zip(predictions, targets):
-            image_id = target['image_id']
             scores = pred['scores']
             detections = pred['boxes']
             labels = pred['labels']
-            self.image_ids = torch.cat((self.image_ids, torch.full_like(labels, image_id.item())))
+            self.image_ids = torch.cat((self.image_ids, torch.full_like(labels, image_id)))
             self.labels = torch.cat((self.labels, labels))
             self.scores = torch.cat((self.scores, scores))
             self.detections = torch.cat((self.detections, detections))
@@ -49,6 +55,8 @@ class MeanAveragePrecision:
             iscrowd = target['iscrowd']
             self.gt_boxes.append(gt_box[iscrowd <= difficult])
             self.gt_labels.append(gt_labels[iscrowd <= difficult])
+
+            image_id += 1
 
     def sort(self):
         orders = torch.argsort(self.scores, descending=True)
@@ -80,7 +88,7 @@ class MeanAveragePrecision:
 
             iou_max = -float('inf')
             if boxes.numel() > 0:
-                similarity = box_iou(detection, boxes).squeeze()
+                similarity = box_iou(detection, boxes).view(-1)
                 iou_max, iou_where = torch.max(similarity, 0)
 
             if iou_max > iou_thresh and fns[image_id][iou_where]:
@@ -89,12 +97,16 @@ class MeanAveragePrecision:
             else:
                 fp[i] = 1
         
+        # tp[i] + fp[i] == 1
+        # tp[-1] + fn == the number of gt_boxes
         tp = torch.cumsum(tp, dim=0).numpy()
         fp = torch.cumsum(fp, dim=0).numpy()
         fn = sum(fn.sum().item() for fn in fns)
 
-        ppv = tp / (tp + fp) # tp[i] + fp[i] == 1
-        tpr = tp / (tp + fn) # tp + fn == the number of gt_boxes
+        ppv = tp / (tp + fp) 
+        # I adopts tpr = tp / np.maximum((tp + fn), 0.5) at first,
+        # but official code adopts the following formula:
+        tpr = tp / (tp[-1] + fn)
         ppv = np.concatenate(([0.], ppv, [0.]))
         tpr = np.concatenate(([0.], tpr, [1.]))
 

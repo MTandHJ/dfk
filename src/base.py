@@ -92,7 +92,11 @@ class Checker:
     def evaluate(self, dataloader: Iterable):
         self.model.eval()
         self.mAPer.reset()
+        count = 0
         for images, targets in dataloader:
+            count += 1
+            if count > 10:
+                break
             images = [image.to(self.device) for image in images]
             predictions: List[Dict] = self.model(images)
             self.mAPer.update(predictions, targets)
