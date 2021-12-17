@@ -98,7 +98,7 @@ def load_roi_pool(
     featmap_names: str = "1,2,3,4",
     output_size: Union[int, Tuple[int], List[int]] = 7,
     sampling_ratio: int = 2, *, 
-    canonical_scale: int = 224, 
+    canonical_scale: int = 224,
     canonical_level: int = 4
 ):
     from models.rcnnops import MultiScaleRoIAlign_
