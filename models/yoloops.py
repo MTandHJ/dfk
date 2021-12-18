@@ -28,13 +28,18 @@ class AbsRelTransform(ObjDetectionModule):
         self.after_batches = after_batches
         self.stride = stride
 
-    property
+    @property
     def size(self):
-        if self.training and self.batch_count % self.after_batches == 0:
-            self.__size = random.choice(
-                range(self.min_size, self.max_size, self.stride)
-            )
-        return self.__size
+        if self.training:
+            return self.__size
+        else:
+            return self.max_size
+
+    def step(self):
+        self.batch_count += 1
+        self.__size = random.choice(
+            range(self.min_size, self.max_size, self.stride)
+        )
 
     def resize(self, image: Tensor):
         image = image.unsqueeze(0)
@@ -68,7 +73,7 @@ class AbsRelTransform(ObjDetectionModule):
         Args:
             boxes: (x + ij, y + ij, w, h)
         """
-        H, W = img_size,
+        H, W = img_size
         boxes = boxes.clone()
 
         boxes[:, 0] *= W
@@ -85,7 +90,7 @@ class AbsRelTransform(ObjDetectionModule):
 
 
     def forward(self, images: List, targets: Optional[List] = None) -> Tuple[ImageList_, Tensor]:
-        self.batch_count += 1
+        self.step()
         image_sizes = [(img.size(-2), img.size(-1)) for img in images]
         images = [self.resize(img) for img in images]
         images = torch.cat(images, dim=0)
@@ -98,9 +103,9 @@ class AbsRelTransform(ObjDetectionModule):
             for i, (img_size, target) in enumerate(zip(image_sizes, targets)):
                 boxes = target['boxes'] # N x 4
                 boxes = self.abs2rel(boxes, img_size)
-                boxes = torch.cat((torch.zeros((boxes.size(0), 2)), boxes), dim=1) # N x 6
+                boxes = torch.cat((torch.zeros((boxes.size(0), 2)).to(boxes.device), boxes), dim=1) # N x 6
                 boxes[:, 0] = float(i)
-                boxes[:, 1] = targets['labels'].float() - 1 # start from zero
+                boxes[:, 1] = target['labels'].float() - 1 # start from zero
                 new_targets.append(boxes)
             targets = torch.cat(new_targets, dim=0) # BN x 6
             return images, targets

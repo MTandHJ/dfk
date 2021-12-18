@@ -18,7 +18,7 @@ class YOLO(ObjDetectionModule):
     def __init__(
         self, darknet: DarkNet, 
         min_size: int = 288, max_size: int = 480, after_batches: int = 10,
-        conf_thresh: float = .5, iou_thresh: float = 0.5,
+        conf_thresh: float = .1, iou_thresh: float = 0.5,
     ) -> None:
         super().__init__()
 
@@ -42,13 +42,12 @@ class YOLO(ObjDetectionModule):
         num_of_anchors, num_of_targets = len(anchors), len(targets)
         targets = torch.cat((
             targets.repeat(num_of_anchors, 1, 1), # 9 x N x 6
-            torch.arange(num_of_anchors, device=device).view(-1, 1).repeat(1, num_of_targets)[:,:,None], # 9 x N, (ids,)
-            2
-        )).view(-1, 7) # (img_id, label, x, y, w, h, anchor_id), # (9xN) x 7
+            torch.arange(num_of_anchors, device=device).float().view(-1, 1).repeat(1, num_of_targets)[:,:,None], # 9 x N, (ids,)
+        ), 2).view(-1, 7) # (img_id, label, x, y, w, h, anchor_id), # (9xN) x 7
 
         anchors = anchors.repeat(1, num_of_targets, 1).view(-1, 2) # (9xN) x 2
 
-        ious = box_iou_wh(anchors, targets)
+        ious = box_iou_wh(anchors, targets[:, 4:6])
         targets = targets[ious > 0.5]
         positives = targets[:, -1]
 
@@ -56,13 +55,13 @@ class YOLO(ObjDetectionModule):
         multi_indices = []
         for l, stride in enumerate(strides):
             indices = (positives >= 3 * l) & (positives < 3 * (l + 1))
-            layer_postives = positives[indices].long()
+            layer_postives = positives[indices].long() % 3
             layer_targets = targets[indices]
             layer_ids = layer_targets[:, 0].long()
             layer_labels = layer_targets[:, 1].long()
             layer_offset_x = (layer_targets[:, 2] * W / stride).long()
             layer_offset_y = (layer_targets[:, 3] * H / stride).long()
-            layer_boxes = layer_targets[:, 2:]
+            layer_boxes = layer_targets[:, 2:6]
             layer_boxes[:, 0] = layer_boxes[:, 0] * W % stride
             layer_boxes[:, 1] = layer_boxes[:, 1] * H % stride
 
@@ -73,17 +72,17 @@ class YOLO(ObjDetectionModule):
 
     def forward(self, images: List, targets: Optional[List] = None):
         images, targets = self.transform(images, targets)
-        results = self.darknet(images)
+        results = self.darknet(images.tensors)
         H, W = float(images.tensors.size(-2)), float(images.tensors.size(-1))
 
         if not self.training:
             multi_preds = [preds.flatten(1, 3) for (preds, _) in results]
             predications = torch.cat(multi_preds, dim=1)
-            keep = predications[..., :4] = self.conf_thresh
-            predications = predications[keep]
             results = []
             for i, original_size in enumerate(images.image_sizes):
                 preds_per_img = predications[i]
+                keep = preds_per_img[..., 4] > self.conf_thresh
+                preds_per_img = preds_per_img[keep]
                 boxes, scores = preds_per_img[:, :4], preds_per_img[:, 5:]
                 boxes[:, 0:4:2] /= W # convert to relative coordinates
                 boxes[:, 1:4:2] /= H
@@ -91,7 +90,10 @@ class YOLO(ObjDetectionModule):
                 boxes[:, 0:4:2].clamp_(0., original_size[1]) # clip to [0, W]
                 boxes[:, 1:4:2].clamp_(0., original_size[0]) # clip to [0, H]
                 scores, labels = torch.max(scores, dim=-1)
-                boxes = nms(boxes, scores, self.iou_thresh)
+                keep = nms(boxes, scores, self.iou_thresh)
+                boxes = boxes[keep]
+                labels = labels[keep]
+                scores = scores[keep]
                 results.append({
                     'boxes': boxes,
                     'labels': labels + 1, # start from 1
@@ -104,7 +106,7 @@ class YOLO(ObjDetectionModule):
         running_box_loss = 0.
         running_obj_loss = 0.
         running_cls_loss = 0.
-        for preds, layer_boxes, indices in zip((multi_preds, multi_targets, multi_indices)):
+        for preds, layer_boxes, indices in zip(multi_preds, multi_targets, multi_indices):
             layer_obj = torch.zeros_like(preds[..., 0])
             layer_ids, layers_labels, layer_positives, layer_offset_x, layer_offset_y = indices
             if len(layer_ids):

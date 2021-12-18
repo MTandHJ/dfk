@@ -39,6 +39,10 @@ def load_backbone(model_type: str) -> Tuple[nn.Module, List[str]]:
             norm_layer=torchvision.ops.misc.FrozenBatchNorm2d
         )
         stages = [('bn1', 'conv1'), 'layer1', 'layer2', 'layer3', 'layer4']
+    elif model_type == 'darknet':
+        from models.darknet import DarkNet
+        backbone = DarkNet
+        stages = None
     else:
         raise ModelNotDefineError(f"backbone {model_type} is not defined.\n" \
                 f"Refer to the following: {load_backbone.__doc__}\n")

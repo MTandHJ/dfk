@@ -109,7 +109,7 @@ class YoLoLayer(ObjDetectionModule):
         self.stride = stride
         self.anchors = torch.tensor(self.CLUSTERS[cluster], dtype=torch.float32)
 
-        final_channels = self.original_anchors.size(1) * (num_classes + 5)
+        final_channels = self.anchors.size(0) * (num_classes + 5)
         self.inner = nn.Sequential(
             Convolutional(in_channels, out_channels, 3, 1),
             conv1x1(out_channels, final_channels, bias=True)
@@ -121,7 +121,7 @@ class YoLoLayer(ObjDetectionModule):
         t = t.view(B, self.anchors.size(0), -1, H, W).permute((0, 3, 4, 1, 2))
         X, Y = torch.meshgrid(torch.arange(H), torch.arange(W))
         grids = torch.stack((X, Y), 2).view(1, H, W, 1, 2).float().to(x.device)
-        anchors = self.anchors().to(x.device).clone().view(1, 1, 1, -1, 2)
+        anchors = self.anchors.to(x.device).clone().view(1, 1, 1, -1, 2)
         t[..., 0:2] = (t[..., 0:2].sigmoid() + grids) * self.stride
         t[..., 2:4] = t[..., 2:4].exp() * anchors
         if not self.training:

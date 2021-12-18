@@ -21,7 +21,6 @@ parser.add_argument("--backbone", type=str, default="darknet")
 parser.add_argument("--dataset", type=str, default="voc2012")
 parser.add_argument("--pretrained-path", type=str, default=None)
 parser.add_argument("--pretrained-name", type=str, default=SAVED_FILENAME)
-parser.add_argument("--trainable-stages", type=int, default=0)
 
 parser.add_argument("--optimizer", type=str, choices=("sgd", "adam"), default="sgd")
 parser.add_argument("-mom", "--momentum", type=float, default=0.9,
@@ -42,7 +41,7 @@ parser.add_argument("--transform", type=str, default='default',
 
 # eval
 parser.add_argument("--eval-train", action="store_true", default=False)
-parser.add_argument("--eval-valid", action="store_false", default=True)
+parser.add_argument("--eval-valid", action="store_true", default=False)
 parser.add_argument("--eval-freq", type=int, default=5,
                 help="for valid dataset only")
 
@@ -95,25 +94,14 @@ def load_cfg() -> Tuple[Config, str]:
     set_seed(opts.seed)
 
     # the model and other settings for training
-    backbone, stages = load_backbone(opts.backbone)
+    backbone, _ = load_backbone(opts.backbone)
+    backbone = backbone(get_num_classes(opts.dataset) - 1)
     if opts.pretrained_path is not None:
         load(
             model=backbone,
             path=opts.pretrained_path,
             filename=opts.pretrained_name
         )
-        # overwrite_eps(backbone, 0.0)
-    # freeze some layers
-    stages = stages[::-1][:opts.trainable_stages]
-    layers_to_train = []
-    for stage in stages:
-        if isinstance(stage, str):
-            layers_to_train.append(stage)
-        else:
-            layers_to_train.extend(stage)
-    for name, parameter in backbone.named_parameters():
-        if all([not name.startswith(layer) for layer in layers_to_train]):
-            parameter.requires_grad_(False)
     
     model = YOLO(
         darknet=backbone, **settings.yolo
